@@ -1,6 +1,7 @@
 from io import BlockingIOError
 from os import openpty, read, set_blocking, ttyname, write
 from serial import serial_for_url
+from sys import stderr
 from time import sleep, time
 from tty import setcbreak
 
@@ -10,10 +11,11 @@ class Mux():
     """"""
     _id = 0
 
-    def __init__(self, serial, id):
+    def __init__(self, serial, id, log=None):
         """"""
         self._serial = serial
         self.id = id
+        self._log = log
 
         self._master, self._slave = openpty()
         self.name = ttyname(self._slave)
@@ -25,13 +27,15 @@ class Mux():
 
     def _raw_read(self):
         data = self._serial.read()
-        print('{:012.2f} --> {:02x} ({})'.format(
-            time() - self._time, ord(data), data))
+        if self._log:
+            self._log.write('{:012.2f} --> {:02x} ({})\n'.format(
+                time() - self._time, ord(data), data))
         return data
 
     def _raw_write(self, data):
-        print('{:012.2f} <-- {:02x} ({})'.format(
-            time() - self._time, ord(data), data))
+        if self._log:
+            self._log.write('{:012.2f} <-- {:02x} ({})\n'.format(
+                time() - self._time, ord(data), data))
         self._serial.write(data)
 
     def _available(self):
@@ -70,7 +74,7 @@ def serialmux(name, number):
 
     muxs = []
     for i in range(1, number + 1):
-        muxs.append(Mux(connection, i))
+        muxs.append(Mux(connection, i, stderr))
         print('mux {} is on {}'.format(muxs[-1].id, muxs[-1].name))
 
     while True:

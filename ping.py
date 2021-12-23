@@ -1,12 +1,12 @@
-from serial import Serial
+#from serial import Serial
 from time import sleep
 
+from simple_rpc import Interface
 
-connection = Serial('/dev/pts/20')
+
+interface = Interface('/dev/pts/20', wait=2)
 
 while True:
     for i in range(256):
-        connection.write(bytes([i]))
-        print('sent: {:02x}'.format(i))
-        print('rcvd: {:02x}\n'.format(ord(connection.read())))
-        sleep(1)
+        print(interface.inc(i))
+        sleep(1);
