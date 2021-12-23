@@ -8,7 +8,5 @@ while True:
     for i in range(256):
         connection.write(bytes([i]))
         print('sent: {:02x}'.format(i))
-        while not connection.in_waiting:
-            pass
         print('rcvd: {:02x}\n'.format(ord(connection.read())))
         sleep(1)

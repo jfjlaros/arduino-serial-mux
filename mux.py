@@ -2,6 +2,8 @@ from io import BlockingIOError
 from os import openpty, read, set_blocking, ttyname, write
 from serial import serial_for_url
 from time import sleep
+from tty import setcbreak
+
 
 
 class Mux():
@@ -17,11 +19,21 @@ class Mux():
         self.name = ttyname(self._slave)
 
         set_blocking(self._master, False)
+        setcbreak(self._master)
+
+    def _raw_read(self):
+        data = self._serial.read()
+        print('--> {:02x} ({})'.format(ord(data), data))
+        return data
+
+    def _raw_write(self, data):
+        print('<-- {:02x} ({})'.format(ord(data), data))
+        self._serial.write(data)
 
     def _available(self):
         """"""
         if not Mux._id and self._serial.in_waiting:
-            Mux._id = ord(self._serial.read())
+            Mux._id = ord(self._raw_read())
         if Mux._id == self.id:
             return 1
         return 0
@@ -29,11 +41,12 @@ class Mux():
     def _read(self):
         """"""
         Mux._id = 0
-        return self._serial.read()
+        return self._raw_read()
 
     def _write(self, data):
         """"""
-        self._serial.write(bytes([self.id]) + data)
+        self._raw_write(bytes([self.id]))
+        self._raw_write(data)
 
     def update(self):
         """"""
