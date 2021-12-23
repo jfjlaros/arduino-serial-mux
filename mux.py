@@ -1,10 +1,15 @@
 from io import BlockingIOError
 from os import openpty, read, set_blocking, ttyname, write
 from serial import serial_for_url
-from sys import stderr
+from sys import stderr, stdout
 from time import sleep, time
 from tty import setcbreak
 
+
+_commands = {
+    'get_ports': 0,
+    'enable': 1,
+    'disable': 2}
 
 
 class Mux():
@@ -68,14 +73,29 @@ class Mux():
         self._write(data)
 
 
-def serialmux(name, number):
+def _control(connection, cmd):
+    connection.write(bytes([0, _commands[cmd]]))
+
+    if ord(connection.read()):
+        raise IOError('Invalid control response.')
+
+    return ord(connection.read())
+
+
+def serialmux(handle, log_handle, name):
     """"""
     connection = serial_for_url(name)
+    sleep(2)
+
+    number_of_ports = _control(connection, 'get_ports')
+    handle.write('Virtual ports detected: {}\n'.format(number_of_ports))
 
     muxs = []
-    for i in range(1, number + 1):
-        muxs.append(Mux(connection, i, stderr))
-        print('mux {} is on {}'.format(muxs[-1].id, muxs[-1].name))
+    for i in range(1, number_of_ports + 1):
+        muxs.append(Mux(connection, i, log_handle))
+        handle.write('  Mux{}: {}\n'.format(muxs[-1].id, muxs[-1].name))
+
+    _control(connection, 'enable')
 
     while True:
         for mux in muxs:
@@ -85,7 +105,7 @@ def serialmux(name, number):
 
 def main():
     """Main entry point."""
-    serialmux('/dev/ttyUSB0', 2)
+    serialmux(stdout, None, '/dev/ttyUSB0')
 
 
 if __name__ == '__main__':
