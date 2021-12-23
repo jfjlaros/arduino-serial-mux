@@ -1,7 +1,5 @@
-from io import BlockingIOError
 from os import openpty, read, set_blocking, ttyname, write
 from serial import serial_for_url
-from sys import stderr, stdout
 from time import sleep, time
 from tty import setcbreak
 
@@ -9,10 +7,11 @@ from tty import setcbreak
 _commands = {
     'get_ports': 0,
     'enable': 1,
-    'disable': 2}
+    'disable': 2,
+    'reset': 3}
 
 
-class Mux():
+class SerialMux():
     """"""
     _id = 0
 
@@ -45,15 +44,15 @@ class Mux():
 
     def _available(self):
         """"""
-        if not Mux._id and self._serial.in_waiting:
-            Mux._id = ord(self._raw_read())
-        if Mux._id == self.id:
+        if not SerialMux._id and self._serial.in_waiting:
+            SerialMux._id = ord(self._raw_read())
+        if SerialMux._id == self.id:
             return 1
         return 0
 
     def _read(self):
         """"""
-        Mux._id = 0
+        SerialMux._id = 0
         return self._raw_read()
 
     def _write(self, data):
@@ -82,7 +81,7 @@ def _control(connection, cmd):
     return ord(connection.read())
 
 
-def serialmux(handle, log_handle, name):
+def serial_mux(handle, log_handle, name):
     """"""
     connection = serial_for_url(name)
     sleep(2)
@@ -92,7 +91,7 @@ def serialmux(handle, log_handle, name):
 
     muxs = []
     for i in range(1, number_of_ports + 1):
-        muxs.append(Mux(connection, i, log_handle))
+        muxs.append(SerialMux(connection, i, log_handle))
         handle.write('  Mux{}: {}\n'.format(muxs[-1].id, muxs[-1].name))
 
     _control(connection, 'enable')
@@ -101,12 +100,3 @@ def serialmux(handle, log_handle, name):
         for mux in muxs:
             mux.update()
         sleep(0.001)
-
-
-def main():
-    """Main entry point."""
-    serialmux(stdout, None, '/dev/ttyUSB0')
-
-
-if __name__ == '__main__':
-    main()
