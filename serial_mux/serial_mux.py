@@ -14,7 +14,7 @@ _commands = {
 
 class SerialMux():
     """Serial multiplexer."""
-    _id = 0
+    _lock = 0
 
     def __init__(
             self: object, serial: object, id: int, log: BinaryIO=None
@@ -36,64 +36,52 @@ class SerialMux():
 
         self._time = time()
 
-    def _raw_read(self: object) -> bytes:
-        """Read from master serial device.
-
-        :returns: Data.
-        """
-        data = self._serial.read()
+    def _msg(self: object, out: bool, data: bytes) -> None:
         if self._log:
-            self._log.write('{:012.2f} --> {:02x} ({})\n'.format(
-                time() - self._time, ord(data), data))
-        return data
-
-    def _raw_write(self: object, data: bytes) -> None:
-        """Write to master serial device.
-
-        :arg data: Data.
-        """
-        if self._log:
-            self._log.write('{:012.2f} <-- {:02x} ({})\n'.format(
-                time() - self._time, ord(data), data))
-        self._serial.write(data)
-
-    def _available(self: object) -> int:
-        """Get the number of bytes available for reading.
-
-        :returns: Number of bytes.
-        """
-        if not SerialMux._id and self._serial.in_waiting:
-            SerialMux._id = ord(self._raw_read())
-        if SerialMux._id == self.id:
-            return 1
-        return 0
+            self._log.write('{:012.2f} {} {} {} ({})\n'.format(
+                time() - self._time,
+                '<--' if out else '-->',
+                self.id,
+                ' '.join(list(map(lambda x: '{:02x}'.format(x), data))),
+                len(data)))
 
     def _read(self: object) -> bytes:
         """Read incoming data.
 
         :returns: The first byte of incoming data.
         """
-        SerialMux._id = 0
-        return self._raw_read()
+        if self._serial.in_waiting:
+            if not SerialMux._lock:
+                SerialMux._lock = ord(self._serial.read(1))
+            if SerialMux._lock == self.id:
+                SerialMux._lock = 0
+
+                data = self._serial.read(ord(self._serial.read(1)))
+                self._msg(False, data)
+                return data
+        return b''
 
     def _write(self: object, data: bytes) -> None:
         """Write outgoing data.
 
         :arg data: Data.
         """
-        self._raw_write(bytes([self.id]))
-        self._raw_write(data)
+        self._msg(True, data)
+        self._serial.write(bytes([self.id, len(data)]) + data)
 
     def update(self: object) -> None:
         """Perform pending read and write operations."""
-        if self._available():
-            write(self._master, self._read())
+        write(self._master, self._read())
 
-        try:
-            data = read(self._master, 1)
-        except BlockingIOError:
-            return
-        self._write(data)
+        data = b''
+        while True:
+            try:
+                data += read(self._master, 1)
+            except BlockingIOError:
+                break
+
+        if data:
+            self._write(data)
 
 
 def _control(serial: object, cmd: str) -> int:
@@ -104,9 +92,11 @@ def _control(serial: object, cmd: str) -> int:
 
     :returns: Resonse of control command.
     """
-    serial.write(bytes([0, _commands[cmd]]))
+    serial.write(bytes([0, 1, _commands[cmd]]))
 
     if ord(serial.read()):
+        raise IOError('Invalid control response.')
+    if ord(serial.read()) != 1:
         raise IOError('Invalid control response.')
 
     return ord(serial.read())
