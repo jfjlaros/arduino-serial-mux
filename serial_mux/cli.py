@@ -34,7 +34,7 @@ def main():
     try:
         serial_mux(**{k: v for k, v in vars(args).items()
                    if k not in ('func', 'subcommand')})
-    except ValueError as error:
+    except (IOError, ValueError) as error:
         parser.error(error)
 
 

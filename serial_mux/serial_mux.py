@@ -5,11 +5,14 @@ from tty import setcbreak
 from typing import BinaryIO
 
 
+_protocol = b'serialMux'
+_version = (1, 0, 0)
 _commands = {
-    'get_ports': 0,
-    'enable': 1,
-    'disable': 2,
-    'reset': 3}
+    'protocol': 0,
+    'get_ports': 1,
+    'enable': 2,
+    'disable': 3,
+    'reset': 4}
 
 
 class SerialMux():
@@ -85,7 +88,7 @@ class SerialMux():
             self._write(data)
 
 
-def _control(serial: object, cmd: str) -> int:
+def _control(serial: object, cmd: str) -> bytes:
     """Send a control comand.
 
     :arg serial: Open serial connection.
@@ -97,10 +100,24 @@ def _control(serial: object, cmd: str) -> int:
 
     if ord(serial.read()):
         raise IOError('Invalid control response.')
-    if ord(serial.read()) != 1:
+    size = ord(serial.read())
+    if not size:
         raise IOError('Invalid control response.')
 
-    return ord(serial.read())
+    return serial.read(size)
+
+
+def _assert_protocol(protocol: str) -> None:
+    if protocol != _protocol:
+        raise IOError('invalid protocol header');
+
+
+def _assert_version(version: tuple) -> None:
+    if version[0] != _version[0] or version[1] > _version[1]:
+        raise IOError(
+            'version mismatch (device: {}, client: {})'.format(
+                '.'.join(map(str, version)),
+                '.'.join(map(str, _version))))
 
 
 def serial_mux(handle: BinaryIO, log_handle: BinaryIO, device: str) -> None:
@@ -113,7 +130,11 @@ def serial_mux(handle: BinaryIO, log_handle: BinaryIO, device: str) -> None:
     connection = serial_for_url(device)
     sleep(2)
 
-    number_of_ports = _control(connection, 'get_ports')
+    response = _control(connection, 'protocol')
+    _assert_protocol(response[:-3])
+    _assert_version(tuple(response[-3:]))
+
+    number_of_ports = ord(_control(connection, 'get_ports'))
     handle.write('Virtual ports detected: {}\n'.format(number_of_ports))
 
     muxs = []
