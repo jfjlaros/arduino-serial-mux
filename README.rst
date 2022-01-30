@@ -1,26 +1,37 @@
 Arduino serialMux host library
 ==============================
 
-.. NOTE::
-
-    Under construction.
+.. image:: https://img.shields.io/github/last-commit/jfjlaros/arduino-serial-mux.svg
+   :target: https://github.com/jfjlaros/arduino-serial-mux/graphs/commit-activity
+.. image:: https://github.com/jfjlaros/arduino-serial-mux/actions/workflows/python-package.yml/badge.svg
+   :target: https://github.com/jfjlaros/arduino-serial-mux/actions/workflows/python-package.yml
+.. image:: https://readthedocs.org/projects/serialmux/badge/?version=latest
+   :target: https://arduino-serial-mux.readthedocs.io/en/latest
+.. image:: https://img.shields.io/github/release-date/jfjlaros/arduino-serial-mux.svg
+   :target: https://github.com/jfjlaros/arduino-serial-mux/releases
+.. image:: https://img.shields.io/github/release/jfjlaros/arduino-serial-mux.svg
+   :target: https://github.com/jfjlaros/arduino-serial-mux/releases
+.. image:: https://img.shields.io/pypi/v/arduino-serial-mux.svg
+   :target: https://pypi.org/project/arduino-serial-mux/
+.. image:: https://img.shields.io/github/languages/code-size/jfjlaros/arduino-serial-mux.svg
+   :target: https://github.com/jfjlaros/arduino-serial-mux
+.. image:: https://img.shields.io/github/languages/count/jfjlaros/arduino-serial-mux.svg
+   :target: https://github.com/jfjlaros/arduino-serial-mux
+.. image:: https://img.shields.io/github/languages/top/jfjlaros/arduino-serial-mux.svg
+   :target: https://github.com/jfjlaros/arduino-serial-mux
+.. image:: https://img.shields.io/github/license/jfjlaros/arduino-serial-mux.svg
+   :target: https://raw.githubusercontent.com/jfjlaros/arduino-serial-mux/master/LICENSE.md
 
 ----
 
-Installation
-------------
-
-::
-
-    git clone https://github.com/jfjlaros/arduino-simple-rpc
-    cd arduino-simple-rpc
-    pip install .
+This Python library provides a simple way to create virtual serial interfaces
+created on an Arduino_ using the serialMux_ protocol.
 
 
-Usage
------
+Quick start
+-----------
 
-Start the serial multiplexer on a serial device, e.g., ``/dev/ttyUSB0``.
+Plug in the Arduino device and run the serial multiplexer.
 
 ::
 
@@ -29,18 +40,13 @@ Start the serial multiplexer on a serial device, e.g., ``/dev/ttyUSB0``.
       Mux1: /dev/pts/8
       Mux2: /dev/pts/9
 
-Run the demo_ (needs simpleRPC_).
+The virtual serial ports ``/dev/pts/8`` and ``/dev/pts/9`` can now be used to
+communicate to the virtual serial devices created on the device.
 
-::
-
-    $ python demo.py /dev/pts/8
-
-In an other terminal, see the log messages.
-
-::
-
-    $ picocom /dev/pts/9
+For more information, see the Usage_ section.
 
 
-.. _demo: https://github.com/jfjlaros/arduino-serial-mux/blob/master/examples/demo/demo.py
-.. _simpleRPC: https://pypi.org/project/arduino-simple-rpc/
+.. _Arduino: https://www.arduino.cc
+.. _serialMux: https://serialmux.readthedocs.io
+.. _ReadTheDocs: https://arduino-serial-mux.readthedocs.io
+.. _Usage: https://arduino-serial-mux.readthedocs.io/en/latest/usage.html

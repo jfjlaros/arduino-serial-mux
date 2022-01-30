@@ -1,8 +1,8 @@
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser, FileType
 from time import sleep
 from typing import BinaryIO
-
-from simple_rpc import Interface
+from serial import Serial
+from struct import pack
 
 
 def demo(handle: BinaryIO, device: str) -> None:
@@ -11,12 +11,13 @@ def demo(handle: BinaryIO, device: str) -> None:
     :arg handle: Output file.
     :arg device: Device name.
     """
-    interface = Interface(device)
+    interface = Serial(device)
 
     while True:
         for i in range(256):
-            handle.write(
-                'sent: {:3d}  received: {:3d}\n'.format(i, interface.inc(i)))
+            interface.write(pack('B', i));
+            sleep(1);
+            handle.write(interface.read(interface.in_waiting).decode())
             sleep(1);
 
 

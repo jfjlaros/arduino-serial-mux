@@ -44,6 +44,7 @@ class SerialMux():
                 self.id,
                 ' '.join(list(map(lambda x: '{:02x}'.format(x), data))),
                 len(data)))
+            self._log.flush()
 
     def _read(self: object) -> bytes:
         """Read incoming data.
