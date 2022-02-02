@@ -1,6 +1,6 @@
 from pkg_resources import DistributionNotFound, get_distribution
 
-from .serial_mux import SerialMux, serial_mux
+#from .serial_mux import SerialMux, serial_mux
 
 
 def _get_metadata(name: str) -> str:
