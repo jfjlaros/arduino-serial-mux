@@ -15,21 +15,77 @@ _commands = {
     'reset': 4}
 
 
-class SerialMux():
-    """Serial multiplexer."""
-    _lock = 0
+def _assert_protocol(protocol: str) -> None:
+    if protocol != _protocol:
+        raise IOError('invalid protocol header');
 
-    def __init__(
-            self: object, serial: object, id: int, log: BinaryIO=None
-            ) -> None:
+
+def _assert_version(version: tuple) -> None:
+    if version[0] != _version[0] or version[1] > _version[1]:
+        raise IOError(
+            'version mismatch (device: {}, client: {})'.format(
+                '.'.join(map(str, version)),
+                '.'.join(map(str, _version))))
+
+
+class Control():
+    """Serial multiplexer control channel."""
+    _ids = 0;
+    _lock = 0
+    _log = None
+    _serial = None
+
+    def __init__(self: object, device: str, log: BinaryIO=None) -> None:
         """
-        :arg serial: Open serial connection.
-        :arg id: Mux id.
+        :arg device: Device name.
         :arg log: Open writeable handle to a log file.
         """
-        self._serial = serial
-        self.id = id
-        self._log = log
+        Control._serial = serial_for_url(device)
+        Control._log = log
+
+        sleep(2)
+
+    def cmd(self: object, cmd: str) -> bytes:
+        """Send a control comand.
+
+        :arg cmd: Command.
+
+        :returns: Resonse of control command.
+        """
+        Control._serial.write(bytes([0, 1, _commands[cmd]]))
+
+        if Control._serial.read() != b'\x00':
+            raise IOError('invalid control response')
+
+        size = ord(Control._serial.read())
+        if not size:
+            raise IOError('invalid control message size')
+
+        return Control._serial.read(size)
+
+    def init(self: object):
+        """
+        """
+        response = self.cmd('protocol')
+        _assert_protocol(response[:-3])
+        _assert_version(tuple(response[-3:]))
+
+        number_of_ports = ord(self.cmd('get_ports'))
+
+        muxs = []
+        for i in range(1, number_of_ports + 1):
+            muxs.append(SerialMux())
+
+        self.cmd('enable')
+
+        return muxs
+
+
+class SerialMux(Control):
+    """Serial multiplexer."""
+    def __init__(self: object) -> None:
+        SerialMux._ids += 1
+        self.id = SerialMux._ids
 
         self._master, self._slave = openpty()
         self.name = ttyname(self._slave)
@@ -40,27 +96,27 @@ class SerialMux():
         self._time = time()
 
     def _msg(self: object, out: bool, data: bytes) -> None:
-        if self._log:
-            self._log.write('{:012.2f} {} {} {} ({})\n'.format(
+        if SerialMux._log:
+            SerialMux._log.write('{:012.2f} {} {} {} ({})\n'.format(
                 time() - self._time,
                 '<--' if out else '-->',
                 self.id,
                 ' '.join(list(map(lambda x: '{:02x}'.format(x), data))),
                 len(data)))
-            self._log.flush()
+            SerialMux._log.flush()
 
     def _read(self: object) -> bytes:
         """Read incoming data.
 
         :returns: The first byte of incoming data.
         """
-        if self._serial.in_waiting:
+        if SerialMux._serial.in_waiting:
             if not SerialMux._lock:
-                SerialMux._lock = ord(self._serial.read(1))
+                SerialMux._lock = ord(SerialMux._serial.read(1))
             if SerialMux._lock == self.id:
                 SerialMux._lock = 0
 
-                data = self._serial.read(ord(self._serial.read(1)))
+                data = SerialMux._serial.read(ord(SerialMux._serial.read(1)))
                 self._msg(False, data)
                 return data
         return b''
@@ -71,7 +127,7 @@ class SerialMux():
         :arg data: Data.
         """
         self._msg(True, data)
-        self._serial.write(bytes([self.id, len(data)]) + data)
+        SerialMux._serial.write(bytes([self.id, len(data)]) + data)
 
     def update(self: object) -> None:
         """Perform pending read and write operations."""
@@ -88,38 +144,6 @@ class SerialMux():
             self._write(data)
 
 
-def _control(serial: object, cmd: str) -> bytes:
-    """Send a control comand.
-
-    :arg serial: Open serial connection.
-    :arg cmd: Command.
-
-    :returns: Resonse of control command.
-    """
-    serial.write(bytes([0, 1, _commands[cmd]]))
-
-    if ord(serial.read()):
-        raise IOError('Invalid control response.')
-    size = ord(serial.read())
-    if not size:
-        raise IOError('Invalid control response.')
-
-    return serial.read(size)
-
-
-def _assert_protocol(protocol: str) -> None:
-    if protocol != _protocol:
-        raise IOError('invalid protocol header');
-
-
-def _assert_version(version: tuple) -> None:
-    if version[0] != _version[0] or version[1] > _version[1]:
-        raise IOError(
-            'version mismatch (device: {}, client: {})'.format(
-                '.'.join(map(str, version)),
-                '.'.join(map(str, _version))))
-
-
 def serial_mux(handle: BinaryIO, log_handle: BinaryIO, device: str) -> None:
     """Serial multiplexer.
 
@@ -127,22 +151,11 @@ def serial_mux(handle: BinaryIO, log_handle: BinaryIO, device: str) -> None:
     :arg log_handle: Log file.
     :arg device: Device name.
     """
-    connection = serial_for_url(device)
-    sleep(2)
+    muxs = Control(device, log_handle).init()
 
-    response = _control(connection, 'protocol')
-    _assert_protocol(response[:-3])
-    _assert_version(tuple(response[-3:]))
-
-    number_of_ports = ord(_control(connection, 'get_ports'))
-    handle.write('Virtual ports detected: {}\n'.format(number_of_ports))
-
-    muxs = []
-    for i in range(1, number_of_ports + 1):
-        muxs.append(SerialMux(connection, i, log_handle))
-        handle.write('  Mux{}: {}\n'.format(muxs[-1].id, muxs[-1].name))
-
-    _control(connection, 'enable')
+    handle.write('Virtual ports detected: {}\n'.format(len(muxs)))
+    for mux in muxs:
+        handle.write('  Mux{}: {}\n'.format(mux.id, mux.name))
 
     while True:
         for mux in muxs:
