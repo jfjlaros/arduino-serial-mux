@@ -21,7 +21,8 @@ def serial_mux(
     threads = [Thread(target=mux.update, daemon=True)]
     threads[-1].start()
 
-    handle.write('Detected {} ports.\n'.format(len(mux.devices)))
+    handle.write('Detected {} virtual serial ports.\n'.format(
+        len(mux.devices)))
     for i, device in enumerate(mux.devices):
         handle.write(
             '  Virtual serial device {}: {}\n'.format(i + 1, device.name))

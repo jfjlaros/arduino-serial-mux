@@ -28,6 +28,7 @@ Arduino serialMux host library
 This Python library provides a simple way to create virtual serial interfaces
 created on an Arduino_ using the serialMux_ protocol.
 
+Please see ReadTheDocs_ for the latest documentation.
 
 Quick start
 -----------
@@ -37,9 +38,9 @@ Plug in the Arduino device and run the serial multiplexer.
 ::
 
     $ serial_mux /dev/ttyUSB0
-    Virtual ports detected: 2
-      Mux1: /dev/pts/8
-      Mux2: /dev/pts/9
+    Detected 2 virtual serial ports.
+      Virtual serial device 1: /dev/pts/3
+      Virtual serial device 2: /dev/pts/10
 
 The virtual serial ports ``/dev/pts/8`` and ``/dev/pts/9`` can now be used to
 communicate to the virtual serial devices created on the device.

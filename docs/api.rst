@@ -1,6 +1,10 @@
 API documentation
 =================
 
-.. automodule:: serial_mux.serial_mux
-   :members:
-   :inherited-members:
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+   :glob:
+
+   api/serial_mux
+   api/vserial
