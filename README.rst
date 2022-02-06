@@ -39,10 +39,10 @@ Plug in the Arduino device and run the serial multiplexer.
 
     $ serial_mux /dev/ttyUSB0
     Detected 2 virtual serial ports.
-      Virtual serial device 1: /dev/pts/3
-      Virtual serial device 2: /dev/pts/10
+      Virtual serial device 1: /dev/pts/8
+      Virtual serial device 2: /dev/pts/9
 
-The virtual serial ports ``/dev/pts/8`` and ``/dev/pts/9`` can now be used to
+The virtual serial devices ``/dev/pts/8`` and ``/dev/pts/9`` can now be used to
 communicate to the virtual serial devices created on the device.
 
 For more information, see the Usage_ section.
