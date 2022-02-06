@@ -1,31 +1,29 @@
-from os import fork, getpid, openpty, read, ttyname, write
+from os import getpid, openpty, read, ttyname, write
 from tty import setcbreak
 
 
 class VSerial():
     """Virtual serial device."""
-    def __init__(self: object, mux: object, device_id: int) -> None:
+    def __init__(self: object, mux: object, port: int) -> None:
         """
+        :arg mux: Serial multiplexer.
+        :arg port: Virtual serial port.
         """
         self._mux = mux
-        self._id = device_id
+        self._port = port
 
         self._master, self._slave = openpty()
+        setcbreak(self._master)
         self.name = ttyname(self._slave)
 
-        setcbreak(self._master)
-
-        pid = fork()
-        if pid:
-            while True:
-                self._update()
-
     def receive(self: object, data: bytes) -> None:
-        """
+        """Receive serial data.
+
+        :arg data: Data.
         """
         write(self._master, data)
 
-    def _update(self: object) -> None:
-        """
-        """
-        self._mux.write(self._id, read(self._master, 32))
+    def update(self: object) -> None:
+        """Send serial data."""
+        while True:
+            self._mux.send(self._port, read(self._master, 32))

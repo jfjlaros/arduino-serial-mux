@@ -1,5 +1,5 @@
-from os import fork
 from serial import serial_for_url
+from threading import Lock
 from time import sleep, time
 from typing import BinaryIO
 
@@ -8,12 +8,103 @@ from .vserial import VSerial
 
 _protocol = b'serialMux'
 _version = (1, 0, 0)
+_control_port = 0xff
 _commands = {
     'protocol': b'\x00',
-    'get_ports': b'\x01',
-    'enable': b'\x02',
-    'disable': b'\x03',
-    'reset': b'\x04'}
+    'version': b'\x01',
+    'get_ports': b'\x02',
+    'enable': b'\x03',
+    'disable': b'\x04',
+    'reset': b'\x05'}
+
+
+class SerialMux():
+    """Serial multiplexer."""
+    def __init__(
+            self: object, device: str, baudrate: int=9600, wait: int=2,
+            log: BinaryIO=None) -> None:
+        """
+        :arg device: Device name.
+        :arg baudrate: Baud rate.
+        :arg wait: Time in seconds before communication starts.
+        :arg log: Open writeable handle to a log file.
+        """
+        self._log = log
+        self._mutex = Lock()
+
+        self._serial = serial_for_url(device, baudrate=baudrate)
+        sleep(wait)
+
+        _assert_protocol(self._cmd('protocol'))
+        _assert_version(self._cmd('version'))
+        number_of_ports = ord(self._cmd('get_ports'))
+
+        self.devices = []
+        for i in range(number_of_ports):
+            self.devices.append(VSerial(self, i))
+
+        self._cmd('enable')
+
+    def send(self: object, port: int, data: bytes) -> None:
+        """Send data from a virtual serial device to the serial device.
+
+        :arg port: Virtual serial port.
+        :arg data: Data.
+        """
+        with self._mutex:
+            self._write(port, data)
+
+    def update(self: object) -> None:
+        """Receive serial data and send it to the corresponding virtual
+        serial device."""
+        while True:
+            port, data = self._read()
+            self.devices[port].receive(data)
+
+    def _cmd(self: object, cmd: str) -> bytes:
+        """Send a control comand.
+
+        :arg cmd: Command.
+
+        :returns: Resonse of control command.
+        """
+        self._write(_control_port, _commands[cmd])
+        port, data = self._read()
+        if port != _control_port or not data:
+            raise IOError('invalid control command response')
+        return data
+
+    def _msg(self: object, port: str, data: bytes, way: str) -> None:
+        """Log a message.
+
+        :arg port: Virtual serial port.
+        :arg data: Data.
+        :arg way: Data transfer direction.
+        """
+        if self._log:
+            self._log.write('{:012.2f} {} {:02x} : {} ({})\n'.format(
+                time(), way, port, _hex(data), len(data)))
+            self._log.flush()
+
+    def _read(self: object) -> tuple:
+        """Read from the serial device.
+
+        :returns: Virtual serial port and data.
+        """
+        port = ord(self._serial.read())
+        size = ord(self._serial.read())
+        data = self._serial.read(size)
+        self._msg(port, data, '-->')
+        return port, data
+
+    def _write(self: object, port: int, data: bytes) -> None:
+        """Write to the serial device.
+
+        :arg port: Virtual serial port.
+        :arg data: Data.
+        """
+        self._serial.write(bytes([port, len(data)]) + data)
+        self._msg(port, data, '<--')
 
 
 def _assert_protocol(protocol: str) -> None:
@@ -29,83 +120,5 @@ def _assert_version(version: tuple) -> None:
                 '.'.join(map(str, _version))))
 
 
-class SerialMux():
-    """Serial multiplexer."""
-    def __init__(self: object, device: str, log: BinaryIO=None) -> None:
-        """
-        :arg device: Device name.
-        :arg log: Open writeable handle to a log file.
-        """
-        self._serial = serial_for_url(device)
-        self._log = log
-
-        self._time = time()
-        self._device = []
-
-        sleep(2)
-
-        number_of_ports = ord(self._cmd('get_ports'))
-
-        for i in range(1, number_of_ports + 1):
-            self._device.append(VSerial(self, i))
-
-        self._cmd('enable')
-
-        pid = fork()
-        if pid:
-            while True:
-                self._update();
-
-    def write(self: object, device_id: int, data: bytes) -> None:
-        """
-        """
-        self._write(device_id, data)
-        self._msg(device_id, data, '<--')
-
-    def get_ports(self: object) -> list:
-        """
-        """
-        return [device.name for device in self._device]
-
-    def _update(self: object) -> None:
-        """
-        """
-        device_id, data = self._read()
-        self._device[device_id - 1].receive(data)
-        self._msg(device_id, data, '-->')
-
-    def _cmd(self: object, cmd: str) -> bytes:
-        """Send a control comand.
-
-        :arg cmd: Command.
-
-        :returns: Resonse of control command.
-        """
-        self.write(0, _commands[cmd])
-        device_id, data = self._read()
-        if device_id or not data:
-            raise IOError('invalid control command response')
-        return data
-
-    def _msg(self: object, device_id: str, data: bytes, way: str) -> None:
-        """
-        """
-        if self._log:
-            self._log.write('{:012.2f} {} {} {} ({})\n'.format(
-                time() - self._time, way, device_id,
-                ' '.join(list(map(lambda x: '{:02x}'.format(x), data))),
-                len(data)))
-            self._log.flush()
-
-    def _read(self: object) -> tuple:
-        """
-        """
-        device_id = ord(self._serial.read())
-        size = ord(self._serial.read())
-        data = self._serial.read(size)
-        return device_id, data
-
-    def _write(self: object, device_id: int, data: bytes) -> None:
-        """
-        """
-        self._serial.write(bytes([device_id, len(data)]) + data)
+def _hex(data: bytes) -> str:
+    return ' '.join(list(map(lambda x: '{:02x}'.format(x), data)))
