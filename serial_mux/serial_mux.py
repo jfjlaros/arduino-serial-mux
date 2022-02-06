@@ -58,8 +58,7 @@ class SerialMux():
         """Receive serial data and send it to the corresponding virtual
         serial device."""
         while True:
-            port, data = self._read()
-            self.devices[port].receive(data)
+            self._update()
 
     def _cmd(self: object, cmd: str) -> bytes:
         """Send a control comand.
@@ -73,6 +72,12 @@ class SerialMux():
         if port != _control_port or not data:
             raise IOError('invalid control command response')
         return data
+
+    def _update(self: object) -> None:
+        """Receive serial data and send it to the corresponding virtual
+        serial device."""
+        port, data = self._read()
+        self.devices[port].receive(data)
 
     def _msg(self: object, port: str, data: bytes, way: str) -> None:
         """Log a message.

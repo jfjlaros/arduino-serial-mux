@@ -26,4 +26,8 @@ class VSerial():
     def update(self: object) -> None:
         """Send serial data."""
         while True:
-            self._mux.send(self._port, read(self._master, 32))
+            self._update()
+
+    def _update(self: object) -> None:
+        """Send serial data."""
+        self._mux.send(self._port, read(self._master, 32))
