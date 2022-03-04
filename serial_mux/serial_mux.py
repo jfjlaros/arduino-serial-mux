@@ -7,8 +7,9 @@ from .vserial import VSerial
 
 
 _protocol = b'serialMux'
-_version = (1, 0, 0)
-_control_port = 0xff
+_version = (2, 0, 0)
+_escape = 0xff
+_control_port = 0xfe
 _commands = {
     'protocol': b'\x00',
     'version': b'\x01',
@@ -32,18 +33,21 @@ class SerialMux():
         self._log = log
         self._mutex = Lock()
 
+        self._port_rx = _control_port
+        self._port_tx = _control_port
+
         self._serial = serial_for_url(device, baudrate=baudrate)
         sleep(wait)
 
-        _assert_protocol(self._cmd('protocol'))
-        _assert_version(self._cmd('version'))
-        number_of_ports = ord(self._cmd('get_ports'))
+        _assert_protocol(self._cmd('protocol', len(_protocol)))
+        _assert_version(self._cmd('version', len(_version)))
+        number_of_ports = ord(self._cmd('get_ports', 1))
 
         self.devices = []
         for i in range(number_of_ports):
             self.devices.append(VSerial(self, i))
 
-        self._cmd('enable')
+        self._cmd('enable', 1)
 
     def send(self: object, port: int, data: bytes) -> None:
         """Send data from a virtual serial device to the serial device.
@@ -60,7 +64,7 @@ class SerialMux():
         while True:
             self._update()
 
-    def _cmd(self: object, cmd: str) -> bytes:
+    def _cmd(self: object, cmd: str, size: int) -> bytes:
         """Send a control comand.
 
         :arg cmd: Command.
@@ -68,16 +72,28 @@ class SerialMux():
         :returns: Resonse of control command.
         """
         self._write(_control_port, _commands[cmd])
-        port, data = self._read()
-        if port != _control_port or not data:
+        data = self.read(size)
+        if self._port_rx != _control_port or not data:
             raise IOError('invalid control command response')
         return data
 
     def _update(self: object) -> None:
         """Receive serial data and send it to the corresponding virtual
         serial device."""
-        port, data = self._read()
-        self.devices[port].receive(data)
+        data = self.read(1)
+        if self._port_rx != _control_port:
+            self.devices[self._port_rx].receive(data)
+
+    def read(self: object, size: int) -> bytes:
+        """Read from the serial device.
+
+        :size: Number of bytes to read.
+
+        :returns: Virtual serial port and data.
+        """
+        data = b''.join([self._read() for _ in range(size)])
+        self._msg(self._port_rx, data, '-->')
+        return data
 
     def _msg(self: object, port: str, data: bytes, way: str) -> None:
         """Log a message.
@@ -96,11 +112,13 @@ class SerialMux():
 
         :returns: Virtual serial port and data.
         """
-        port = ord(self._serial.read())
-        size = ord(self._serial.read())
-        data = self._serial.read(size)
-        self._msg(port, data, '-->')
-        return port, data
+        while ord(byte := self._serial.read()) == _escape:
+            port = ord(self._serial.read())
+            if port == _escape:
+                return _escape
+            else:
+                self._port_rx = port
+        return byte
 
     def _write(self: object, port: int, data: bytes) -> None:
         """Write to the serial device.
@@ -108,8 +126,14 @@ class SerialMux():
         :arg port: Virtual serial port.
         :arg data: Data.
         """
-        self._serial.write(bytes([port, len(data)]) + data)
-        self._msg(port, data, '<--')
+        if port != self._port_tx:
+            self._port_tx = port
+            self._serial.write(bytes([_escape, self._port_tx]))
+        for byte in data:
+            if byte == _escape:
+                self._serial.write(bytes([_escape]))
+            self._serial.write(bytes([byte]))
+        self._msg(self._port_tx, data, '<--')
 
 
 def _assert_protocol(protocol: str) -> None:
