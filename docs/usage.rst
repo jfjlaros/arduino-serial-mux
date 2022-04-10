@@ -24,6 +24,7 @@ Start the serial multiplexer on a serial device, e.g., ``/dev/ttyUSB0``.
       Virtual serial device 1: /dev/pts/8
       Virtual serial device 2: /dev/pts/9
 
+    Press Ctrl+C to exit.
 
 Usage
 -----
@@ -44,9 +45,9 @@ second virtual serial device.
 ::
 
     $ picocom -q /dev/pts/9
-    System time: 3432
-    System time: 6860
-    System time: 10290
+    time: 3432
+    time: 6860
+    time: 10290
 
 
 .. _sketch: https://github.com/jfjlaros/serialMux/blob/master/examples/demo/demo.ino

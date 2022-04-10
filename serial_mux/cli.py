@@ -19,7 +19,7 @@ def serial_mux(
     """
     mux = SerialMux(device, baudrate, wait, log_handle)
     threads = [Thread(target=mux.update, daemon=True)]
-    threads[-1].start()
+    threads[0].start()
 
     handle.write('Detected {} virtual serial ports.\n'.format(
         len(mux.devices)))
