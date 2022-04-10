@@ -3,9 +3,8 @@ Arduino serialMux host library
 
 .. image:: https://img.shields.io/github/last-commit/jfjlaros/arduino-serial-mux.svg
    :target: https://github.com/jfjlaros/arduino-serial-mux/graphs/commit-activity
-..
-    .. image:: https://github.com/jfjlaros/arduino-serial-mux/actions/workflows/python-package.yml/badge.svg
-       :target: https://github.com/jfjlaros/arduino-serial-mux/actions/workflows/python-package.yml
+.. image:: https://github.com/jfjlaros/arduino-serial-mux/actions/workflows/python-package.yml/badge.svg
+   :target: https://github.com/jfjlaros/arduino-serial-mux/actions/workflows/python-package.yml
 .. image:: https://readthedocs.org/projects/serialmux/badge/?version=latest
    :target: https://arduino-serial-mux.readthedocs.io/en/latest
 .. image:: https://img.shields.io/github/release-date/jfjlaros/arduino-serial-mux.svg
