@@ -22,5 +22,4 @@ class Serial():
 
 
 def serial_for_url(*args, **kwargs) -> object:
-    return Serial(
-        b'\xff\x09serialMux\xff\x03\x01\x00\x00\xff\x01\x02\xff\x01\x00')
+    return Serial(b'serialMux\x02\x00\x00\x02\x00')

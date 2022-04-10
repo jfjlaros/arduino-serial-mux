@@ -8,7 +8,7 @@ from .vserial import VSerial
 
 _protocol = b'serialMux'
 _version = (2, 0, 0)
-_escape = 0xff
+_escape = b'\xff'
 _control_port = 0xfe
 _commands = {
     'protocol': b'\x00',
@@ -107,17 +107,17 @@ class SerialMux():
                 time(), way, port, _hex(data), len(data)))
             self._log.flush()
 
-    def _read(self: object) -> tuple:
+    def _read(self: object) -> bytes:
         """Read from the serial device.
 
-        :returns: Virtual serial port and data.
+        :returns: Data.
         """
-        while ord(byte := self._serial.read()) == _escape:
-            port = ord(self._serial.read())
+        while (byte := self._serial.read()) == _escape:
+            port = self._serial.read()
             if port == _escape:
                 return _escape
             else:
-                self._port_rx = port
+                self._port_rx = ord(port)
         return byte
 
     def _write(self: object, port: int, data: bytes) -> None:
@@ -128,11 +128,11 @@ class SerialMux():
         """
         if port != self._port_tx:
             self._port_tx = port
-            self._serial.write(bytes([_escape, self._port_tx]))
-        for byte in data:
+            self._serial.write(_escape + bytes([self._port_tx]))
+        for byte in [bytes([b]) for b in data]:
             if byte == _escape:
-                self._serial.write(bytes([_escape]))
-            self._serial.write(bytes([byte]))
+                self._serial.write(_escape)
+            self._serial.write(byte)
         self._msg(self._port_tx, data, '<--')
 
 

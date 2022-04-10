@@ -3,6 +3,11 @@ from serial_mux.serial_mux import (
     _assert_protocol, _assert_version, _commands, _protocol,
     _version)
 
+from _serial import serial_for_url
+from serial_mux import serial_mux
+
+serial_mux.serial_for_url = serial_for_url
+
 
 def test_assert_protocol_pass() -> None:
     _assert_protocol(_protocol)
@@ -34,19 +39,10 @@ def test_init() -> None:
     assert SerialMux('', wait=0)
 
 
-def test_cmd() -> None:
-    mux = SerialMux('', wait=0)
-    for k, v in _commands.items():
-        mux._serial.prepare(b'\xff\x01\x00')
-        assert mux._cmd(k) == b'\x00'
-        assert mux._serial.inspect(3) == b'\xff\x01' + v
-
-
 def test_cmd_fail_1() -> None:
     mux = SerialMux('', wait=0)
-    mux._serial.prepare(b'\x00\x01\x00')
     try:
-        mux._cmd('protocol')
+        mux._cmd('protocol', 3)
     except IOError as error:
         assert str(error) == 'invalid control command response'
     else:
@@ -55,31 +51,39 @@ def test_cmd_fail_1() -> None:
 
 def test_cmd_fail_2() -> None:
     mux = SerialMux('', wait=0)
-    mux._serial.prepare(b'\xff\x00\x00')
+    mux._serial.prepare(b'\xff\x00\x00\x00\x00')
     try:
-        mux._cmd('protocol')
+        mux._cmd('protocol', 3)
     except IOError as error:
         assert str(error) == 'invalid control command response'
     else:
         assert False
 
 
+def test_cmd() -> None:
+    mux = SerialMux('', wait=0)
+    for k, v in _commands.items():
+        mux._serial.prepare(b'\x00')
+        assert mux._cmd(k, 1) == b'\x00'
+        assert mux._serial.inspect(1) == v
+
+
 def test_read() -> None:
     mux = SerialMux('', wait=0)
-    mux._serial.prepare(b'\x00\x01\xff')
-    assert mux._read() == (0, b'\xff')
+    mux._serial.prepare(b'\xff\x00\xff\xff')
+    assert mux._read() == b'\xff'
 
 
 def test_write() -> None:
     mux = SerialMux('', wait=0)
     mux._write(0, b'\xff')
-    assert mux._serial.inspect(3) == b'\x00\x01\xff'
+    assert mux._serial.inspect(4) == b'\xff\x00\xff\xff'
 
 
 def test_send() -> None:
     mux = SerialMux('', wait=0)
     mux.send(0, b'\xff')
-    assert mux._serial.inspect(3) == b'\x00\x01\xff'
+    assert mux._serial.inspect(4) == b'\xff\x00\xff\xff'
 
 
 def test_devices() -> None:
@@ -93,7 +97,7 @@ def test_send_device1() -> None:
     handle.write(b'\x01\x02\x03')
     handle.flush()
     mux.devices[0]._update()
-    assert mux._serial.inspect(5) == b'\x00\x03\x01\x02\x03'
+    assert mux._serial.inspect(5) == b'\xff\x00\x01\x02\x03'
 
 
 def test_send_device2() -> None:
@@ -102,7 +106,7 @@ def test_send_device2() -> None:
     handle.write(b'\x01\x02\x03')
     handle.flush()
     mux.devices[1]._update()
-    assert mux._serial.inspect(5) == b'\x01\x03\x01\x02\x03'
+    assert mux._serial.inspect(5) == b'\xff\x01\x01\x02\x03'
 
 
 def test_receive_direct_device1() -> None:
@@ -115,7 +119,7 @@ def test_receive_direct_device1() -> None:
 def test_receive_device1() -> None:
     mux = SerialMux('', wait=0)
     handle = open(mux.devices[0].name, 'rb')
-    mux._serial.prepare(b'\x00\x01\xff')
+    mux._serial.prepare(b'\xff\x00\xff\xff')
     mux._update()
     assert handle.read(1) == b'\xff'
 
@@ -130,6 +134,6 @@ def test_receive_direct_device2() -> None:
 def test_receive_device2() -> None:
     mux = SerialMux('', wait=0)
     handle = open(mux.devices[1].name, 'rb')
-    mux._serial.prepare(b'\x01\x01\xff')
+    mux._serial.prepare(b'\xff\x01\xff\xff')
     mux._update()
     assert handle.read(1) == b'\xff'
